@@ -4,6 +4,38 @@ Bảo vệ secrets (API keys, credentials, certificates, `.env`...) khỏi bị 
 đọc vào context — bằng cơ chế **harness cưỡng chế thật sự**, không chỉ là lời dặn
 trong prompt. Thiết kế để **không ảnh hưởng các luồng MCP** đang hoạt động.
 
+## English summary — and why this repo exists
+
+**What it is:** deterministic, 3-layer secrets protection for [Claude Code](https://claude.com/claude-code).
+It stops the AI agent from reading `.env` files, private keys and credentials into
+its context — enforced by the harness itself (`permissions.deny` + a PreToolUse
+hook covering `Read`/`Edit`/`Grep`/`Bash`/`PowerShell`), with a CLAUDE.md redaction
+policy as the last safety net. All three layers are designed to never touch
+`mcp__*` tools, so Jira/Confluence/Outline/Figma/Slack flows keep working with
+zero added latency.
+
+**Why it was born:** this repo came out of hard lessons running Claude Code on
+real work projects:
+
+1. **`.claudeignore` is not honored** — the "obvious" protection simply does not
+   exist in Claude Code. Files we assumed were hidden were readable all along.
+2. **Prompt-only rules don't survive contact with reality.** Instructions like
+   "never read .env" live in CLAUDE.md, but behavioral rules can be skipped,
+   misread, or silently lost when a long session gets summarized. A guardrail
+   that depends on the model *remembering* it is not a guardrail.
+3. **Every gap we found was found the hard way.** A live API key sitting in a
+   project config file; later, a working `cat .env` bypass through the Bash tool
+   that sailed past both enforcement layers (fixed in this repo — the hook now
+   tokenizes shell commands too).
+
+The conclusion: secrets protection for AI coding agents must be **deterministic
+first** (deny rules + hooks the harness enforces on every tool call), **behavioral
+second** (redaction policy for whatever still leaks in via directory greps or MCP
+responses), and **MCP-safe by design** — a security layer that breaks your
+integrations is a security layer people turn off.
+
+Docs below are in Vietnamese; the code and config are language-neutral.
+
 ## Kiến trúc 3 lớp
 
 ```
