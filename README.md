@@ -1,45 +1,84 @@
 # 🔒 Security Check — Claude Code Skill
 
-Skill bảo mật tự động cho Claude Code CLI. Kiểm tra và bảo vệ thông tin nhạy cảm (API keys, credentials, certificates...) trước khi chúng bị đưa vào context gửi lên server.
+Bảo vệ secrets (API keys, credentials, certificates, `.env`...) khỏi bị Claude Code
+đọc vào context — bằng cơ chế **harness cưỡng chế thật sự**, không chỉ là lời dặn
+trong prompt. Thiết kế để **không ảnh hưởng các luồng MCP** đang hoạt động.
 
-## Tính năng
+## Kiến trúc 3 lớp
 
-- **Tự động tạo `.claudeignore`** khi chưa có — không hỏi, không friction
-- **Chặn đọc file nhạy cảm** — `.env`, `*.key`, `*.pem`, `credentials/`...
-- **Scan nội dung** — phát hiện AWS keys, JWT tokens, DB connection strings...
-- **CLAUDE.md pattern** — nhúng trực tiếp vào từng project
-
-## Cách dùng
-
-### Cách 1 — Dùng như Claude Code Skill
-
-```bash
-# Trong Claude Code session
-/install-skill security-check.skill
+```
+Lớp 1  permissions.deny        .claude/settings.json — harness chặn, 0 latency
+Lớp 2  PreToolUse hook         secret-guard.js — matcher ^(Read|Edit|Grep)$
+Lớp 3  CLAUDE.md policy        redact khi hiển thị (kể cả nội dung từ MCP)
 ```
 
-### Cách 2 — Nhúng vào CLAUDE.md của project (khuyến nghị)
+- **Lớp 1+2 là deterministic** — không phụ thuộc model "nhớ" policy, không bị
+  mất tác dụng khi context dài bị summarize.
+- **Lớp 3 là behavioral** — lưới đỡ cuối: nếu secret vẫn lọt vào context
+  (qua Grep thư mục, qua MCP response...), che giá trị khi hiển thị.
 
-```bash
-cat CLAUDE-security-policy.md >> your-project/CLAUDE.md
-```
+## An toàn với MCP
 
-## Files
-
-| File | Mô tả |
+| Thiết kế | Tác dụng |
 |---|---|
-| `SKILL.md` | Skill definition cho Claude Code |
-| `CLAUDE-security-policy.md` | Template paste vào CLAUDE.md của project |
+| Hook matcher anchor `^(Read\|Edit\|Grep)$` | Không match `mcp__*`, không match `ReadMcpResourceTool` → các luồng Jira/Outline/Figma/Slack... không thêm latency, không bị block |
+| `permissions.deny` chỉ dùng rule `Read(...)` | Chỉ áp lên file tool của harness, không đụng MCP tool |
+| Allowlist `.mcp.json`, `.claude.json`, `.claude/settings*.json` | Vẫn debug/sửa được config MCP server; token bên trong được redact khi hiển thị |
+| Allowlist `*.pen` | File Pencil mã hóa chỉ truy cập qua MCP tools — hook không can thiệp |
+| Nội dung từ MCP: chỉ redact, không bao giờ halt | Trang Confluence/Outline chứa chuỗi giống JWT không làm đứt luồng |
 
-## Patterns được bảo vệ
+**Giới hạn:** các lớp này guard tool call của Claude. MCP server là process riêng
+với quyền filesystem riêng — skill này không (và không thể) ngăn server-side reads.
 
+## Cài đặt
+
+Yêu cầu: Node ≥ 16 (chỉ để chạy installer + hook).
+
+```bash
+git clone https://github.com/hottinhworks-ai/securities-auth-key
+node securities-auth-key/install.mjs /path/to/your-project
 ```
-.env, .env.*, *.pem, *.key, *.p12, *.pfx
-credentials/, secrets/, .secrets/
-config/database.yml, config/database.yaml
-.aws/credentials, serviceAccountKey.json
-firebase*.json, *.token, auth.json, id_rsa
-```
+
+Installer idempotent — chạy lại không tạo trùng lặp, **merge** vào settings sẵn có
+chứ không ghi đè:
+
+1. Copy `hooks/secret-guard.js` → `.claude/hooks/`
+2. Merge `settings-template.json` → `.claude/settings.json` (union `deny`, thêm hook entry)
+3. Append `CLAUDE-security-policy.md` → `CLAUDE.md` (bỏ qua nếu đã có)
+
+Sau đó **khởi động lại session Claude Code** để có hiệu lực.
+
+> Cài như skill (tùy chọn): copy `skills/security-check/` vào `.claude/skills/`
+> của project hoặc `~/.claude/skills/` — Claude sẽ tự dùng khi bạn yêu cầu
+> setup/audit security check.
+
+## File trong repo
+
+| File | Vai trò |
+|---|---|
+| `hooks/secret-guard.js` | PreToolUse hook — chặn đọc file nhạy cảm (lớp 2) |
+| `settings-template.json` | `permissions.deny` + hook registration (lớp 1+2) |
+| `CLAUDE-security-policy.md` | Policy redact append vào `CLAUDE.md` (lớp 3) |
+| `skills/security-check/SKILL.md` | Skill setup/audit cho Claude Code |
+| `install.mjs` | Installer idempotent, cross-platform |
+| `test-hook.mjs` | Test suite cho hook (`node test-hook.mjs`) |
+
+## Pattern được bảo vệ
+
+**Chặn đọc (lớp 1+2):** `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`,
+`id_rsa`/`id_dsa`/`id_ecdsa`/`id_ed25519`, `credentials/`, `secrets/`, `.secrets/`,
+`.aws/credentials`, `*service_account*.json`, `*.token`, `auth.json`, `token.json`
+
+**Không chặn (allowlist):** `.env.example`/`.sample`/`.template`/`.dist`, `*.pub`
+(public key), `.mcp.json`, `.claude.json`, `.claude/settings*.json`, `*.pen`
+
+**Redact khi hiển thị (lớp 3):** AWS key, private key block, JWT (3 segment),
+GitHub/GitLab/Slack/npm token, Anthropic/OpenAI/Google/Stripe key, password
+hardcode (`=` và `:`), DB connection string có password.
+
+Lý do tách 2 tầng chặn/redact: file kiểu `database.yml`, `firebase.json`, `*.crt`
+*có thể* chứa secret nhưng thường là config hợp lệ cần đọc — chặn cứng gây phiền
+mà không tăng bảo mật; redact là đủ.
 
 ## Tác giả
 
