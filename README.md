@@ -8,7 +8,7 @@ trong prompt. Thiết kế để **không ảnh hưởng các luồng MCP** đan
 
 ```
 Lớp 1  permissions.deny        .claude/settings.json — harness chặn, 0 latency
-Lớp 2  PreToolUse hook         secret-guard.js — matcher ^(Read|Edit|Grep)$
+Lớp 2  PreToolUse hook         secret-guard.js — matcher ^(Read|Edit|Grep|Bash|PowerShell)$
 Lớp 3  CLAUDE.md policy        redact khi hiển thị (kể cả nội dung từ MCP)
 ```
 
@@ -21,7 +21,7 @@ Lớp 3  CLAUDE.md policy        redact khi hiển thị (kể cả nội dung t
 
 | Thiết kế | Tác dụng |
 |---|---|
-| Hook matcher anchor `^(Read\|Edit\|Grep)$` | Không match `mcp__*`, không match `ReadMcpResourceTool` → các luồng Jira/Outline/Figma/Slack... không thêm latency, không bị block |
+| Hook matcher anchor `^(Read\|Edit\|Grep\|Bash\|PowerShell)$` | Không match `mcp__*`, không match `ReadMcpResourceTool` → các luồng Jira/Outline/Figma/Slack... không thêm latency, không bị block |
 | `permissions.deny` chỉ dùng rule `Read(...)` | Chỉ áp lên file tool của harness, không đụng MCP tool |
 | Allowlist `.mcp.json`, `.claude.json`, `.claude/settings*.json` | Vẫn debug/sửa được config MCP server; token bên trong được redact khi hiển thị |
 | Allowlist `*.pen` | File Pencil mã hóa chỉ truy cập qua MCP tools — hook không can thiệp |
@@ -68,6 +68,12 @@ Sau đó **khởi động lại session Claude Code** để có hiệu lực.
 **Chặn đọc (lớp 1+2):** `.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`,
 `id_rsa`/`id_dsa`/`id_ecdsa`/`id_ed25519`, `credentials/`, `secrets/`, `.secrets/`,
 `.aws/credentials`, `*service_account*.json`, `*.token`, `auth.json`, `token.json`
+
+**Chặn qua shell (lớp 2):** hook tokenize chuỗi lệnh `Bash`/`PowerShell` và chặn
+khi lệnh nhắc tới path khớp blocklist (vd `cat .env`, `Get-Content .env`,
+`rg --glob=.env`). Đây là tripwire chống đọc nhầm, không phải sandbox — glob
+(`cat .en*`) hoặc biến gián tiếp có thể lách, phần đó do lớp 3 redact đỡ.
+Trade-off: mọi lệnh *nhắc tới* path nhạy cảm đều bị chặn, kể cả `rm .env`.
 
 **Không chặn (allowlist):** `.env.example`/`.sample`/`.template`/`.dist`, `*.pub`
 (public key), `.mcp.json`, `.claude.json`, `.claude/settings*.json`, `*.pen`

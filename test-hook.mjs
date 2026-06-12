@@ -17,6 +17,18 @@ const cases = [
   ['Read', { file_path: 'monkey.tokens.js' }, 0],
   ['Read', { file_path: '.env.production' }, 2],
   ['Read', { file_path: 'a/credentials/gcp.json' }, 2],
+  // Nhánh shell: tokenize tool_input.command
+  ['Bash', { command: 'cat .env' }, 2],
+  ['Bash', { command: 'cat .env.hooktest' }, 2],
+  ['Bash', { command: 'rg secret --glob=.env' }, 2],
+  ['Bash', { command: 'ssh-keygen -f ~/.ssh/id_rsa' }, 2],
+  ['Bash', { command: 'cat ./secrets/db.txt' }, 2],
+  ['Bash', { command: 'echo x > .env' }, 2],
+  ['Bash', { command: 'cat .env.example' }, 0],
+  ['Bash', { command: 'git status && npm test' }, 0],
+  ['PowerShell', { command: 'Get-Content -Path C:\\proj\\.env -Raw' }, 2],
+  ['PowerShell', { command: 'type .env | clip' }, 2],
+  ['PowerShell', { command: 'Get-ChildItem src' }, 0],
 ];
 
 let fail = 0;
