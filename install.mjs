@@ -104,4 +104,9 @@ if (existingMd.includes('Security Policy')) {
   log('✅ CLAUDE.md (đã append security policy)');
 }
 
-log('\n🔒 Xong. Khởi động lại session Claude Code để settings + hook có hiệu lực.');
+log(
+  '\n🔒 Xong. Khởi động lại session Claude Code để settings + hook có hiệu lực.\n' +
+    '⚠️  Nếu chạy installer GIỮA một session đang mở: hook đang hoạt động sẽ TẠM\n' +
+    '   MẤT HIỆU LỰC (harness không tin hook config bị sửa từ tiến trình ngoài)\n' +
+    '   cho tới khi restart — đừng coi là đã được bảo vệ trước khi restart.'
+);
