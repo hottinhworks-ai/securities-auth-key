@@ -20,12 +20,14 @@ jobs:
         run: node test-hook.mjs
       - name: Installer smoke test (cài vào project rỗng rồi chạy lại — idempotent)
         shell: bash
+        # Dùng relative path: trên windows runner, bash (msys) và node (binary
+        # Windows) hiểu "/tmp/..." thành hai chỗ khác nhau — relative thì khớp.
         run: |
-          mkdir -p /tmp/fake-project
-          node install.mjs /tmp/fake-project
-          node install.mjs /tmp/fake-project
+          rm -rf tmp-smoke && mkdir -p tmp-smoke/fake-project
+          node install.mjs tmp-smoke/fake-project
+          node install.mjs tmp-smoke/fake-project
           node -e "
-            const s = require('/tmp/fake-project/.claude/settings.json');
+            const s = require('./tmp-smoke/fake-project/.claude/settings.json');
             const entry = s.hooks.PreToolUse.find(e => (e.hooks||[]).some(h => h.command.includes('secret-guard')));
             if (!entry) throw new Error('thiếu hook entry');
             if (!/Write/.test(entry.matcher)) throw new Error('matcher thiếu Write: ' + entry.matcher);
