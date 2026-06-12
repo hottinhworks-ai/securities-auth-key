@@ -15,7 +15,7 @@ description: >
 | Lớp | Cơ chế | Tính chất |
 |---|---|---|
 | 1 | `permissions.deny` trong `.claude/settings.json` | Harness cưỡng chế, deterministic, 0 latency |
-| 2 | PreToolUse hook `secret-guard.js`, matcher `^(Read\|Edit\|Grep)$` | Deterministic, có allowlist tinh (.env.example, .mcp.json, *.pen) |
+| 2 | PreToolUse hook `secret-guard.js`, matcher `^(Read\|Edit\|Grep\|Bash\|PowerShell)$` | Deterministic, có allowlist tinh (.env.example, .mcp.json, *.pen); nhánh shell tokenize command, chặn lệnh nhắc tới path nhạy cảm |
 | 3 | Security Policy trong `CLAUDE.md` | Behavioral: redact khi hiển thị, kể cả nội dung từ MCP |
 
 Cả 3 lớp **không can thiệp tool `mcp__*`** — các luồng MCP (Jira, Outline,
@@ -55,7 +55,9 @@ Kiểm tra và báo cáo trạng thái từng lớp:
 ## Khi một file bị chặn
 
 Giải thích cho user: file khớp blocklist (xem `hooks/secret-guard.js`).
-Không lách qua bằng Bash/PowerShell. Nếu user muốn cho phép file cụ thể,
+Không tìm cách lách (hook cũng chặn lệnh Bash/PowerShell nhắc tới path
+nhạy cảm — kể cả `rm`/`echo >`; nếu user cần tự chạy lệnh đó, gợi ý họ
+gõ `! <command>` trong prompt). Nếu user muốn cho phép file cụ thể,
 hướng dẫn thêm pattern vào `ALLOW` trong hook, hoặc bỏ rule deny tương ứng
 trong `.claude/settings.json` — đó là quyết định của user.
 
