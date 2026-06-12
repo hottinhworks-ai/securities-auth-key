@@ -15,7 +15,7 @@ description: >
 | Lớp | Cơ chế | Tính chất |
 |---|---|---|
 | 1 | `permissions.deny` trong `.claude/settings.json` | Harness cưỡng chế, deterministic, 0 latency |
-| 2 | PreToolUse hook `secret-guard.js`, matcher `^(Read\|Edit\|Grep\|Bash\|PowerShell)$` | Deterministic, có allowlist tinh (.env.example, .mcp.json, *.pen); nhánh shell tokenize command, chặn lệnh nhắc tới path nhạy cảm |
+| 2 | PreToolUse hook `secret-guard.js`, matcher `^(Read\|Edit\|Grep\|Write\|Bash\|PowerShell)$` | Deterministic, có allowlist tinh (.env.example, .mcp.json, *.pen); nhánh shell tokenize command, chặn lệnh nhắc tới path nhạy cảm; Write bị chặn để không tạo/ghi đè file secret |
 | 3 | Security Policy trong `CLAUDE.md` | Behavioral: redact khi hiển thị, kể cả nội dung từ MCP |
 
 Cả 3 lớp **không can thiệp tool `mcp__*`** — các luồng MCP (Jira, Outline,

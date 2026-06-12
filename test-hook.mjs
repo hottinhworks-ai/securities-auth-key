@@ -17,6 +17,11 @@ const cases = [
   ['Read', { file_path: 'monkey.tokens.js' }, 0],
   ['Read', { file_path: '.env.production' }, 2],
   ['Read', { file_path: 'a/credentials/gcp.json' }, 2],
+  // Write: chặn tạo/ghi đè file secret, cho phép file mẫu
+  ['Write', { file_path: 'C:/proj/.env' }, 2],
+  ['Write', { file_path: '.env.example' }, 0],
+  ['Write', { file_path: 'src/new-file.ts' }, 0],
+  ['Write', { file_path: 'cert/server.key' }, 2],
   // Nhánh shell: tokenize tool_input.command
   ['Bash', { command: 'cat .env' }, 2],
   ['Bash', { command: 'cat .env.hooktest' }, 2],

@@ -2,9 +2,11 @@
 /**
  * secret-guard.js — PreToolUse hook cho Claude Code
  *
- * Chặn các tool đọc file (Read / Edit / Grep) khi target là file nhạy cảm,
- * và chặn lệnh shell (Bash / PowerShell) khi command nhắc tới file nhạy cảm.
- * Chạy qua matcher "^(Read|Edit|Grep|Bash|PowerShell)$" trong
+ * Chặn các tool đọc/ghi file (Read / Edit / Grep / Write) khi target là file
+ * nhạy cảm, và chặn lệnh shell (Bash / PowerShell) khi command nhắc tới file
+ * nhạy cảm. Write bị chặn để Claude không tạo/ghi đè .env, key... — theo
+ * policy thì code mới phải dùng .env.example.
+ * Chạy qua matcher "^(Read|Edit|Grep|Write|Bash|PowerShell)$" trong
  * .claude/settings.json — anchor ^$ để không match nhầm tool khác
  * (vd: ReadMcpResourceTool) và KHÔNG match các tool mcp__* nên không thêm
  * latency / không block các luồng MCP đang chạy.

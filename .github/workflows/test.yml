@@ -1,0 +1,36 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-hook:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run hook test suite
+        run: node test-hook.mjs
+      - name: Installer smoke test (cài vào project rỗng rồi chạy lại — idempotent)
+        shell: bash
+        run: |
+          mkdir -p /tmp/fake-project
+          node install.mjs /tmp/fake-project
+          node install.mjs /tmp/fake-project
+          node -e "
+            const s = require('/tmp/fake-project/.claude/settings.json');
+            const entry = s.hooks.PreToolUse.find(e => (e.hooks||[]).some(h => h.command.includes('secret-guard')));
+            if (!entry) throw new Error('thiếu hook entry');
+            if (!/Write/.test(entry.matcher)) throw new Error('matcher thiếu Write: ' + entry.matcher);
+            if (entry.hooks[0].command.startsWith('node ')) throw new Error('command vẫn dùng node trần: ' + entry.hooks[0].command);
+            const n = s.hooks.PreToolUse.filter(e => (e.hooks||[]).some(h => h.command.includes('secret-guard'))).length;
+            if (n !== 1) throw new Error('hook entry bị trùng: ' + n);
+            console.log('installer OK:', entry.hooks[0].command);
+          "
